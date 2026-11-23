@@ -98,6 +98,11 @@ textarea{min-height:130px;resize:vertical}
 .btn.primary{background:var(--accent);color:var(--on-accent)}
 .btn.primary:disabled{opacity:.35;cursor:not-allowed}
 .btn.ghost{background:transparent;color:var(--muted);padding-inline:6px}
+.btn.outline{background:var(--surface);color:var(--accent-text);border:2px solid var(--ring)}
+.warn{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:18px;background:var(--blush);border:2px solid var(--ring)}
+.warn h3{margin:0;font-size:19px;font-weight:800;color:var(--fg);outline:none}
+.warn p{margin:0;color:var(--fg);max-width:54ch}
+.warn .row{margin-top:4px}
 
 /* intro */
 .intro{gap:22px;padding-top:10px}
@@ -278,6 +283,17 @@ function render(){
     body +=
       (q.consent ? `<label class="consent" for="c-${q.id}"><input type="checkbox" id="c-${q.id}" ${A[q.id + "_ok"] ? "checked" : ""}><span>${esc(q.consent)}</span></label>` : "") +
       (q.privacy ? `<p class="fine">${esc(q.privacy)}</p>` : "");
+    if (q.t === "contact"){
+      const topic = String(A.talk || "").startsWith("Искам платена") ? "с цената на консултацията" : "за разговора и безплатния план";
+      body += `<div class="warn" id="cwarn" role="alert" hidden>
+        <h3 id="cwarn-t" tabindex="-1">Няма как да се свържем с теб</h3>
+        <p>Не си оставила профил или имейл. Без тях няма да можем да ти пишем ${topic}.</p>
+        <div class="row">
+          <button class="btn primary" id="cwarn-fill" type="button">Ще попълня</button>
+          <button class="btn outline" id="cwarn-send" type="button">Изпрати без контакт</button>
+        </div>
+      </div>`;
+    }
   }
   app.innerHTML = `
     <div class="top"><div class="name">${ICON}${HLOGO}</div><div class="count">${i+1} / ${L.length}</div></div>
@@ -301,6 +317,13 @@ function render(){
   });
   const c = document.getElementById("c-" + q.id);
   if (c) c.onchange = () => { A[q.id + "_ok"] = c.checked; setNext(q); };
+  const wFill = document.getElementById("cwarn-fill"), wSend = document.getElementById("cwarn-send");
+  if (wFill) wFill.onclick = () => {
+    document.getElementById("cwarn").hidden = true;
+    const t = A.platform ? document.getElementById("f-profile") : app.querySelector(".opt[data-plat]");
+    if (t){ t.scrollIntoView({behavior: "smooth", block: "center"}); t.focus({preventScroll: true}); }
+  };
+  if (wSend) wSend.onclick = () => go(i + 1);
   setNext(q);
 }
 
@@ -313,6 +336,8 @@ function setNext(q){
     const msg = contactIssue();
     n.textContent = msg && (A.profile && !A.platform || A.emailTouched) ? msg : "";
   }
+  const w = document.getElementById("cwarn");
+  if (w && filled(q)) w.hidden = true;
 }
 
 function pick(q, v){
@@ -343,7 +368,19 @@ function go(n){
   if (i >= vis().length) return done();
   render(); window.scrollTo({top:0});
 }
-nextB.onclick = () => { if (!nextB.disabled) go(i + 1); };
+nextB.onclick = () => {
+  if (nextB.disabled) return;
+  const q = vis()[i], w = document.getElementById("cwarn");
+  if (q && q.t === "contact" && !filled(q) && w){
+    if (w.hidden){
+      w.hidden = false;
+      w.scrollIntoView({behavior: "smooth", block: "center"});
+      document.getElementById("cwarn-t").focus({preventScroll: true});
+    }
+    return;
+  }
+  go(i + 1);
+};
 backB.onclick = () => go(i - 1);
 
 let sent = false;
